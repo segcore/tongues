@@ -5,3 +5,4 @@ haskell/cat.hi
 haskell/cat.o
 rust/cat
 csharp/cat
+odin/cat
