@@ -4,3 +4,4 @@ haskell/cat
 haskell/cat.hi
 haskell/cat.o
 rust/cat
+csharp/cat
