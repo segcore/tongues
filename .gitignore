@@ -6,3 +6,5 @@ haskell/cat.o
 rust/cat
 csharp/cat
 odin/cat
+zig/cat
+zig/cat.o
