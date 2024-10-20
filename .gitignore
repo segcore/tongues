@@ -1,10 +1,4 @@
-c/cat
-c++/cat
-haskell/cat
-haskell/cat.hi
-haskell/cat.o
-rust/cat
-csharp/cat
-odin/cat
-zig/cat
-zig/cat.o
+/*/cat
+/haskell/cat.hi
+/haskell/cat.o
+/zig/cat.o
