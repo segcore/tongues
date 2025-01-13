@@ -3,3 +3,4 @@
 /haskell/cat.o
 /zig/cat.o
 fibonacci
+echo_server
