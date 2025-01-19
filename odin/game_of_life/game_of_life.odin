@@ -4,16 +4,23 @@ import "core:fmt"
 import "core:math"
 import "core:math/rand"
 import "core:time"
+import "core:sys/posix"
+import "core:c/libc"
 
-W :: 80
-H :: 20
+W :: 100
+H :: 40
 INITIAL_ALIVE :: 0.20
-SLEEP :: 50 * time.Millisecond
+SLEEP :: 90 * time.Millisecond
+
+DRAW_CHAR :: 'x'
 
 Field :: distinct [H][W]bool
 
+restore_term_attr : posix.termios
+has_termios : bool
+
 // Print it
-show_field :: proc(field: ^Field) {
+show_field :: proc(field: ^Field, generation: int) {
     fmt.print(' ')
     for it in field[0] {
         fmt.print('-')
@@ -22,7 +29,7 @@ show_field :: proc(field: ^Field) {
     for it in field {
         fmt.print('|')
         for val in it {
-            fmt.print(val ? "x" : " ")
+            fmt.print(val ? DRAW_CHAR : ' ')
         }
         fmt.println('|')
     }
@@ -31,6 +38,7 @@ show_field :: proc(field: ^Field) {
         fmt.print('-')
     }
     fmt.println(' ')
+    fmt.println("Generation", generation)
 }
 
 
@@ -85,9 +93,38 @@ next_field :: proc(last: ^Field, next: ^Field) -> (count_alive: int, changed: bo
 }
 
 
+termios_setup :: proc() {
+
+    attr : posix.termios
+
+    if !posix.isatty(posix.STDOUT_FILENO) do return
+    if posix.tcgetattr(posix.STDOUT_FILENO, &restore_term_attr) != posix.result.OK do return
+    attr = restore_term_attr
+    attr.c_lflag &= ~{(.ICANON | .ECHO)}
+    attr.c_cc[.VMIN] = 1
+    attr.c_cc[.VTIME] = 0
+    posix.tcsetattr(posix.STDOUT_FILENO, .TCSAFLUSH, &attr)
+
+    libc.atexit(proc "c" () {
+        posix.tcsetattr(posix.STDOUT_FILENO, .TCSANOW, &restore_term_attr)
+    })
+
+    has_termios = true
+}
+
+
+termios_goback :: proc() {
+    if has_termios {
+        fmt.printf("\e[%vA", H + 3)
+        fmt.printf("\e[%vD", W + 2)
+    }
+}
+
+
 main :: proc() {
     seed := rand.uint64()
     rand.reset(seed)
+    fmt.printfln("Seed %v", seed)
 
     fields : [2]Field
     active := 0
@@ -97,14 +134,17 @@ main :: proc() {
         }
     }
 
-    show_field(&fields[active])
+    termios_setup()
+
+    show_field(&fields[active], 0)
 
     generation := 0
     for _ in 0..<1000 {
         generation += 1
         count_alive, changed := next_field(&fields[active], &fields[1 - active])
         active = (active + 1) % 2
-        show_field(&fields[active])
+        termios_goback()
+        show_field(&fields[active], generation)
 
         if !changed {
             fmt.println("Repeats forever")
@@ -117,5 +157,5 @@ main :: proc() {
 
         if SLEEP > 0 do time.sleep(SLEEP)
     }
-    fmt.printfln("Got to generation %v, seed = %v", generation, seed)
+    fmt.printfln("Got to generation %v", generation)
 }
