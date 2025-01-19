@@ -4,3 +4,4 @@
 /zig/cat.o
 fibonacci
 echo_server
+game_of_life
