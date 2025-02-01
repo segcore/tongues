@@ -6,11 +6,13 @@ import "core:math/rand"
 import "core:time"
 import "core:sys/posix"
 import "core:c/libc"
+import "core:strings"
 
-W :: 100
-H :: 40
-INITIAL_ALIVE :: 0.20
+W :: 150
+H :: 44
+INITIAL_ALIVE :: 0.13
 SLEEP :: 90 * time.Millisecond
+MAX_GENERATIONS :: 1000
 
 DRAW_CHAR :: 'x'
 
@@ -19,26 +21,33 @@ Field :: distinct [H][W]bool
 restore_term_attr : posix.termios
 has_termios : bool
 
+field_builder : strings.Builder
+
 // Print it
 show_field :: proc(field: ^Field, generation: int) {
-    fmt.print(' ')
+    strings.builder_reset(&field_builder)
+    strings.write_byte(&field_builder, ' ')
     for it in field[0] {
-        fmt.print('-')
+        strings.write_byte(&field_builder, '-')
     }
-    fmt.println(' ')
+    strings.write_byte(&field_builder, ' ')
+    strings.write_byte(&field_builder, '\n')
     for it in field {
-        fmt.print('|')
+        strings.write_byte(&field_builder, '|')
         for val in it {
-            fmt.print(val ? DRAW_CHAR : ' ')
+            strings.write_byte(&field_builder, (val ? DRAW_CHAR : ' '))
         }
-        fmt.println('|')
+        strings.write_byte(&field_builder, '|')
+        strings.write_byte(&field_builder, '\n')
     }
-    fmt.print(' ')
+    strings.write_byte(&field_builder, ' ')
     for it in field[0] {
-        fmt.print('-')
+        strings.write_byte(&field_builder, '-')
     }
-    fmt.println(' ')
-    fmt.println("Generation", generation)
+    strings.write_byte(&field_builder, ' ')
+    strings.write_byte(&field_builder, '\n')
+    fmt.sbprintln(&field_builder, "Generation", generation)
+    fmt.print(strings.to_string(field_builder))
 }
 
 
@@ -115,8 +124,8 @@ termios_setup :: proc() {
 
 termios_goback :: proc() {
     if has_termios {
-        fmt.printf("\e[%vA", H + 3)
-        fmt.printf("\e[%vD", W + 2)
+        fmt.printf("\e[%vA", H + 3, flush=false)
+        fmt.printf("\e[%vD", W + 2, flush=false)
     }
 }
 
@@ -139,9 +148,17 @@ main :: proc() {
     show_field(&fields[active], 0)
 
     generation := 0
-    for _ in 0..<1000 {
+    count_alive := 0
+    for _ in 0..<MAX_GENERATIONS {
+        if SLEEP > 0 do time.sleep(SLEEP)
+
         generation += 1
-        count_alive, changed := next_field(&fields[active], &fields[1 - active])
+        changed: bool
+        count_alive, changed = next_field(&fields[active], &fields[1 - active])
+        if count_alive == 0 {
+            fmt.println("All will die next round :(")
+            break
+        }
         active = (active + 1) % 2
         termios_goback()
         show_field(&fields[active], generation)
@@ -150,12 +167,6 @@ main :: proc() {
             fmt.println("Repeats forever")
             break
         }
-        if count_alive == 0 {
-            fmt.println("All gone :(")
-            break
-        }
-
-        if SLEEP > 0 do time.sleep(SLEEP)
     }
-    fmt.printfln("Got to generation %v", generation)
+    fmt.printfln("Got to generation %v, with %v/%v: %.1f%% cells alive", generation, count_alive, W*H, f64(100 * count_alive) / (W*H))
 }
