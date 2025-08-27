@@ -4,11 +4,11 @@ System :: #import "System";
 
 port :: 1234;
 
+// Both systems provide 'poll', but Windows one is called WSAPoll.
 #if OS == .WINDOWS {
-    try_again :: WSAEWOULDBLOCK; // not tested
+    poll :: WSAPoll;
 } else {
     #import "POSIX";
-    try_again :: EAGAIN;
 }
 
 DataSocket :: struct {
@@ -17,32 +17,33 @@ DataSocket :: struct {
 }
 
 process :: (it: DataSocket) -> success: bool {
-    print("Processing %\n", it.sock);
+    // --- receive ---
     buf: [1024]u8;
     received := recv(it.sock, buf.data, buf.count, MSG.DONTWAIT);
     if received == 0 {
-        print("Client % disconnected normally\n", it.sock);
+        log("Client % disconnected normally\n", it.sock);
         return false;
     }
 
     buf_rx: []u8;
-    log("Client % received % bytes\n", it.sock, received);
     if received < 0 {
-        if get_last_socket_error() != try_again {
+        if get_last_socket_error() != SOCKET_WOULDBLOCK {
             error_code, error_string := System.get_error_value_and_string();
-            print("Client % receive failed. %: %\n", it.sock, error_code, error_string);
+            log("Client % receive failed. %: %\n", it.sock, error_code, error_string);
             return false;
         }
     } else {
-        buf_rx := array_view(buf, 0, received);
+        buf_rx = array_view(buf, 0, received);
+        log("Client %: received % bytes: %\n", it.sock, received, buf_rx);
     }
 
+    // --- do stuff with received data ---
     if buf_rx {
         sent := send(it.sock, buf_rx.data, xx buf_rx.count, MSG.NOSIGNAL);
-        log("Client % sent % bytes\n", it.sock, sent);
+        log("Client %: sent % bytes\n", it.sock, sent);
         if sent < 0 {
             error_code, error_string := System.get_error_value_and_string();
-            print("Client % send (echo) failed: %: %\n", it.sock, error_code, error_string);
+            log("Client % send (echo) failed: %: %\n", it.sock, error_code, error_string);
             return false;
         }
     }
@@ -69,40 +70,38 @@ main :: () {
         exit(1);
     }
     listen(listener, 5);
-    print("Listening on %\n", to_string(bind_address),, temp);
+    log("Listening on %\n", to_string(bind_address),, temp);
 
     data_sockets: [..]DataSocket;
+    defer array_free(data_sockets);
+    poll_sockets: [..]pollfd;
+    defer array_free(poll_sockets);
+
+    array_add(*poll_sockets, pollfd.{fd = listener, events = POLLIN});
 
     while true {
         accepted, addr := accept_v6(listener);
         if accepted == -1 {
-            if get_last_socket_error() != try_again {
+            if get_last_socket_error() != SOCKET_WOULDBLOCK {
                 log_error("Accept failed\n");
                 break;
             }
         } else {
-            print("Accepted a new connection: %  at address %\n", accepted, to_string(addr),, temp);
+            log("Accepted a new connection: %  at address %\n", accepted, to_string(addr),, temp);
             array_add(*data_sockets, .{accepted, addr});
+            array_add(*poll_sockets, pollfd.{fd = accepted, events = POLLIN});
         }
 
-        for data_sockets {
-            if !process(it) {
-                close_and_reset(*it.sock);
-                remove it;
+        for ds: data_sockets {
+            if !process(ds) {
+                for poll_sockets if it.fd == ds.sock remove it;
+                close_and_reset(*ds.sock);
+                remove ds;
             }
         }
 
-        print("Waiting for data change...\n");
-        // select seems the supported one for now
-        set: fd_set;
-        maxfd := listener;
-        FD_SET(listener, *set);
-        for data_sockets {
-            FD_SET(it.sock, *set);
-            maxfd = max(maxfd, it.sock);
-        }
-        except := set;
-        select(maxfd + 1, *set, null, *except, null);
+        timeout: s32 = -1;
+        poll(poll_sockets.data, xx poll_sockets.count, timeout);
     }
 }
 
