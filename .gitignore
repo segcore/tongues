@@ -5,6 +5,7 @@
 /haskell/cat.o
 /odin/odin
 /zig/cat.o
+/jai/protobuf/test
 fibonacci
 echo_server
 echo_server_async
