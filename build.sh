@@ -13,6 +13,7 @@ build c++ "g++ cat.cpp -o cat"
 build csharp "mcs cat.cs -out:cat"
 build haskell "ghc cat.hs"
 build jai "jai cat.jai -quiet"
+build julia "julia cat.jl" </dev/null
 build lua "luac -o cat cat.lua" # Lua is not usually compiled, but it can be to bytecode
 build odin "odin build cat.odin -file"
 build rust "rustc cat.rs"
