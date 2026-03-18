@@ -11,6 +11,7 @@ build() {
 build c "cc cat.c -o cat"
 build c++ "g++ cat.cpp -o cat"
 build csharp "mcs cat.cs -out:cat"
+build go "go build cat.go"
 build haskell "ghc cat.hs"
 build jai "jai cat.jai -quiet"
 build julia "julia cat.jl" </dev/null
