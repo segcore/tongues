@@ -16,6 +16,7 @@ build haskell "ghc cat.hs"
 build jai "jai cat.jai -quiet"
 build julia "julia cat.jl" </dev/null
 build lua "luac -o cat cat.lua" # Lua is not usually compiled, but it can be to bytecode
+build mojo "mojo build cat.mojo"
 build odin "odin build cat.odin -file"
 build r "R --vanilla -s -q" <r/cat.R
 build rust "rustc cat.rs"
