@@ -6,6 +6,7 @@
 /odin/odin
 /zig/cat.o
 /jai/protobuf/test
+*.exe
 fibonacci
 echo_server
 echo_server_async
